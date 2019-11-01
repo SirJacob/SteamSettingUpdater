@@ -1,7 +1,7 @@
 """
-TODO: Implement checking to see if Steam is open.
-TODO: If Steam is open, prompt to close automatically.
 TODO: Menu system
+TODO: Continue to implement more verbose logging
+TODO: Implement config saving (maybe to a .json file)
 
 AutoUpdateBehavior Settings:
 0 = Always keep this game up to date
@@ -10,12 +10,32 @@ AutoUpdateBehavior Settings:
 """
 import glob
 import os
+import psutil
 import GeneralTools as Tools
 import VDFReader
 
 all_steam_directories = [
-    "C:\\Program Files (x86)\\Steam"  # The default Steam installation directory
+    "C:\\Program Files (x86)\\Steam"  # The default Steam installation directory for most users
 ]
+
+for p in psutil.process_iter():
+    if p.name() == "Steam.exe":
+        process_info = f"{p.name()} (PID: {p.pid})"
+        Tools.log(f"{process_info} is running")
+
+        all_steam_directories[0] = p.exe()[:p.exe().rindex('\\')]  # p.exe() points to the exe and we need the directory
+
+        terminate_request_timeout = 10
+        Tools.log(f"Asking {process_info} to exit... (request will timeout in {terminate_request_timeout} seconds)")
+        p.terminate()
+        gone, alive = psutil.wait_procs([p], timeout=terminate_request_timeout, callback=None)
+
+        if len(alive) > 0:
+            p.kill()
+            Tools.log(f"{process_info} ended forcibly (killed)", Tools.LEVEL_WARN)
+        elif len(gone) > 0:
+            Tools.log(f"{process_info} closed peacefully (terminated)")
+        break
 
 # Let's find out if this system has a custom Steam installation directory
 # TODO: Find an alternative Steam installation directory when not default w/o user input
