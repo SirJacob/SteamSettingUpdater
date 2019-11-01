@@ -1,6 +1,7 @@
 from sty import fg
 from pathlib import Path
 import inspect
+from shutil import copyfile
 
 
 # Static Functions #
@@ -13,19 +14,29 @@ def folder_exists(path):
 
 
 def read_file(path):
+    if not file_exists(path):
+        return None
     file = open(path, "r")
     data = file.read()
     file.close()
     return data
 
 
-# TODO: Consider backing up changes before committing them
+# TODO: Test backup function
 def overwrite_file(path, data):
-    file = open(path, "r")
+    # Back up changes before committing them
+    p = Path(path)
+    if p.exists():
+        copyfile(path, f"{path}.old")
+        log(f"Created a backup of: {path}")
+
+    # Create or overwrite file
+    file = open(path, "w")
     file.seek(0)
     file.write(data)
     file.truncate()
     file.close()
+    log(f"Wrote data to: {path}")
 
 
 # Setup a means for creating more readable log output.
