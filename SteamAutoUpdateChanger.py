@@ -1,18 +1,16 @@
 """
-TODO: Menu system
 TODO: Continue to implement more verbose logging
 TODO: Implement config saving (maybe to a .json file)
-
-AutoUpdateBehavior Settings:
-0 = Always keep this game up to date
-1 = Only update this game when I launch it
-2 = High Priority - Always auto-update this game before others
 """
 import glob
 import os
+
 import psutil
+
 import GeneralTools as Tools
 import VDFReader
+
+""" SETUP """
 
 all_steam_directories = [
     "C:\\Program Files (x86)\\Steam"  # The default Steam installation directory for most users
@@ -38,7 +36,7 @@ for p in psutil.process_iter():
         break
 
 # Let's find out if this system has a custom Steam installation directory
-# TODO: Find an alternative Steam installation directory when not default w/o user input
+# TODO: Find an alternative Steam installation directory when not default w/o user input; maybe via running process?
 while not Tools.folder_exists(all_steam_directories[0]):
     all_steam_directories[0] = input("Please provide the path to your Steam installation: ")
 # Let's find out if this system has more than one Steam library setup
@@ -55,11 +53,56 @@ while index >= 1:
         all_steam_directories.append(alt_steam_library)
         index += 1
 
+""" MAIN MENU """
+menu_options = {
+    1: "AutoUpdateBehavior",
+    9: "Quit"
+}
+user_input = 0
+while not menu_options.__contains__(user_input):
+    Tools.clear_console()
+    # Setup menu display
+    print("Steam Setting Updater")
+    for num, option in menu_options.items():
+        print(f"{num}: {option}")
+    user_input = input("Select a number: ")
+    # Validate input
+    if user_input.isdigit():
+        user_input = int(user_input)
+    else:
+        user_input = 0
+
+Tools.clear_console()
+# TODO: Return to menu after a selection is made
+if user_input == 1:
+    print(menu_options[1])
+    print("0 = Always keep this game up to date\n"
+          "1 = Only update this game when I launch it\n"
+          "2 = High Priority - Always auto-update this game before others")
+
+    allowed_input = [0, 1, 2]
+    new_auto_update_behavior = input("Select an option: ")
+    while not allowed_input.__contains__(new_auto_update_behavior):
+        if new_auto_update_behavior.isdigit():
+            new_auto_update_behavior = int(new_auto_update_behavior)
+        else:
+            new_auto_update_behavior = -1
+
+    pass  # TODO: Make AutoUpdateBehavior its own method/function
+elif user_input == 9:
+    Tools.stop_program()
+
+""" AutoUpdateBehavior """
+
 # Variables for keeping track of how many acf files were processed
 num_updated_acf_files = 0
 num_total_acf_files = 0
 
-# TODO: Cleanup
+# Define which AutoUpdateBehavior should be searched for and overwritten
+old_auto_update_behavior = [0, 1, 2]
+old_auto_update_behavior.remove(new_auto_update_behavior)
+
+# TODO: Cleanup code
 for steamapp_directory in all_steam_directories:
     os.chdir(steamapp_directory + "\\steamapps")
     for appmanifest_path in glob.glob("appmanifest_*.acf"):
@@ -67,16 +110,22 @@ for steamapp_directory in all_steam_directories:
 
         appmanifest = open(appmanifest_path, "r+")
         appmanifest_contents = appmanifest.read()
-        if appmanifest_contents.__contains__('"AutoUpdateBehavior"		"0"'):
-            appmanifest_contents = appmanifest_contents.replace('"AutoUpdateBehavior"		"0"',
-                                                                '"AutoUpdateBehavior"		"1"')
+
+        if appmanifest_contents.__contains__(f"\"AutoUpdateBehavior\"		\"{old_auto_update_behavior[0]}\"") or \
+                appmanifest_contents.__contains__(f"\"AutoUpdateBehavior\"		\"{old_auto_update_behavior[1]}\""):
+            appmanifest_contents = appmanifest_contents.replace(
+                f"\"AutoUpdateBehavior\"		\"{old_auto_update_behavior[0]}\"",
+                f"\"AutoUpdateBehavior\"		\"{new_auto_update_behavior}\"")
+            appmanifest_contents = appmanifest_contents.replace(
+                f"\"AutoUpdateBehavior\"		\"{old_auto_update_behavior[1]}\"",
+                f"\"AutoUpdateBehavior\"		\"{new_auto_update_behavior}\"")
+
             appmanifest.seek(0)
             appmanifest.write(appmanifest_contents)
             appmanifest.truncate()
             num_updated_acf_files += 1
         appmanifest.close()
 
-print("AutoUpdateBehavior from 0 to 1")
-print("------------------------------")
-print(f"{num_updated_acf_files}/{num_total_acf_files} ACF files updated"
-      f" in {len(all_steam_directories)} directories.")
+print(f"The automatic update behavior of {num_updated_acf_files} game(s) were changed.\n"
+      f"{abs(num_updated_acf_files - num_total_acf_files)} game(s) already had the requested setting.\n"
+      f"{len(all_steam_directories)} Steam library folder(s) were affected.")
