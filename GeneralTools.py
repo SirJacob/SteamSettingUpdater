@@ -1,7 +1,9 @@
-from sty import fg
-from pathlib import Path
 import inspect
+import os
+from pathlib import Path
 from shutil import copyfile
+
+from sty import fg
 
 
 # Static Functions #
@@ -20,6 +22,16 @@ def read_file(path):
     data = file.read()
     file.close()
     return data
+
+
+# Credit to: https://stackoverflow.com/a/684344/5216257
+def clear_console():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+# Credit to: https://stackoverflow.com/a/543375/5216257
+def stop_program():
+    raise SystemExit(0)
 
 
 # TODO: Test backup function
