@@ -25,8 +25,9 @@ def read_file(path):
 
 
 # Credit to: https://stackoverflow.com/a/684344/5216257
-def clear_console():
-    os.system('cls' if os.name == 'nt' else 'clear')
+def clear_console(is_production):
+    if is_production:
+        os.system('cls' if os.name == 'nt' else 'clear')
 
 
 # Credit to: https://stackoverflow.com/a/543375/5216257
