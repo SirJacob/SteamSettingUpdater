@@ -1,4 +1,6 @@
 """
+TODO: Integrate with SteamCMD to allow for downloading of multiple Steam games at once (+ limit bandwidth and priority)?
+-----
 TODO: Continue to implement more verbose logging
 TODO: Implement config saving (maybe to a .json file)
 """
@@ -6,9 +8,9 @@ import glob
 import os
 
 import psutil
+import vdf
 
 import GeneralTools as Tools
-import VDFReader
 
 """ SETUP """
 is_production = True
@@ -45,13 +47,14 @@ def find_steam_install_dir():
     while not Tools.folder_exists(all_steam_directories[0]):
         all_steam_directories[0] = input("Please provide the path to your Steam installation: ")
     # Let's find out if this system has more than one Steam library setup
+    # TODO: Switch to Steam\config\config.vdf -> BaseInstallFolder for non-main library?
     # Load library folder VDF into memory
-    library_folders_vdf = VDFReader.VDFReader(f"{all_steam_directories[0]}\\steamapps\\libraryfolders.vdf")
+    library_folders_vdf = vdf.load(open(f"{all_steam_directories[0]}\\steamapps\\libraryfolders.vdf"))
 
     # Add all Steam libraries we found in libraryfolders.vdf
     index = 1
     while index >= 1:
-        alt_steam_library = library_folders_vdf.get(index)
+        alt_steam_library = library_folders_vdf["LibraryFolders"].get(str(index))
         if alt_steam_library is None:
             index = -1
         else:
