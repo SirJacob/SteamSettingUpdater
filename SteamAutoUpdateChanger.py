@@ -1,8 +1,11 @@
 """
-TODO: Integrate with SteamCMD to allow for downloading of multiple Steam games at once (+ limit bandwidth and priority)?
-TODO: Wish-list manager
------
+TODO: Integrate with SteamCMD to allow for downloading of multiple Steam games at once (+ limit bandwidth and
+priority)? -> HARD, can be done using SteamCMD, but becomes annoying when Steam Guard is enabled
+TODO: Wish-list manager -> HARD, other langs would have an easier time doing this task
+
 TODO: Implement config saving (maybe to a .json file)
+TODO: Make a vdf wrapper/helper
+TODO: Better documentation
 """
 import glob
 import os
@@ -100,18 +103,18 @@ def display_main_menu():
         new_auto_update_behavior = input("Select an option: ")
         while not allowed_input.__contains__(new_auto_update_behavior):
             if new_auto_update_behavior.isdigit():
-                new_auto_update_behavior = int(new_auto_update_behavior)
+                break
             else:
                 new_auto_update_behavior = -1
 
-        auto_update_behavior(new_auto_update_behavior)
+        set_auto_update_behavior(new_auto_update_behavior)
     if user_input == 2:
         while True:
             Tools.clear_console()
             rate = str(input("Enter a download rate in Kbps (0=disable): "))
             if rate.isdigit():
                 break
-        download_throttle(int(rate))
+        set_download_throttle(int(rate))
     elif user_input == 9:
         Tools.stop_program()
 
@@ -121,41 +124,35 @@ def display_main_menu():
 """ AutoUpdateBehavior """
 
 
-def auto_update_behavior(new_auto_update_behavior):
+def set_auto_update_behavior(new_value: str):
+    """
+    Args:
+    new_value (str): A string that is either "0", "1", or "2" which correspond to the accepted AutoUpdateBehavior
+    values.
+    """
     close_steam()
 
     # Variables for keeping track of how many acf files were processed
     num_updated_acf_files = 0
     num_total_acf_files = 0
 
-    # Define which AutoUpdateBehavior should be searched for and overwritten
-    old_auto_update_behavior = [0, 1, 2]
-    old_auto_update_behavior.remove(new_auto_update_behavior)
-
-    # TODO: Cleanup code using new vdf reader/writer
     for steamapp_directory in all_steam_directories:
-        os.chdir(steamapp_directory + "\\steamapps")
+        os.chdir(steamapp_directory + "\\steamapps")  # TODO: Is this still needed?
         for appmanifest_path in glob.glob("appmanifest_*.acf"):
             num_total_acf_files += 1
 
-            appmanifest = open(appmanifest_path, "r+")
-            appmanifest_contents = appmanifest.read()
+            appmanifest_acf = vdf.load(open(appmanifest_path), mapper=vdf.VDFDict)  # Load VDF file
+            old_value = appmanifest_acf["AppState"]["AutoUpdateBehavior"]
+            if old_value != new_value:
+                # Delete old value and add new value in memory
+                del appmanifest_acf["AppState"]["AutoUpdateBehavior"]
+                appmanifest_acf["AppState"].update({'AutoUpdateBehavior': new_value})
 
-            if appmanifest_contents.__contains__(f"\"AutoUpdateBehavior\"		\"{old_auto_update_behavior[0]}\"") or \
-                    appmanifest_contents.__contains__(
-                        f"\"AutoUpdateBehavior\"		\"{old_auto_update_behavior[1]}\""):
-                appmanifest_contents = appmanifest_contents.replace(
-                    f"\"AutoUpdateBehavior\"		\"{old_auto_update_behavior[0]}\"",
-                    f"\"AutoUpdateBehavior\"		\"{new_auto_update_behavior}\"")
-                appmanifest_contents = appmanifest_contents.replace(
-                    f"\"AutoUpdateBehavior\"		\"{old_auto_update_behavior[1]}\"",
-                    f"\"AutoUpdateBehavior\"		\"{new_auto_update_behavior}\"")
+                # Only backup and then output to file if it was updated
+                Tools.backup_file(appmanifest_path)
+                vdf.dump(appmanifest_acf, open(appmanifest_path, "w"), pretty=True)
 
-                appmanifest.seek(0)
-                appmanifest.write(appmanifest_contents)
-                appmanifest.truncate()
                 num_updated_acf_files += 1
-            appmanifest.close()
 
     if num_updated_acf_files == 0:
         print(f"All {num_total_acf_files} games already had the requested AutoUpdateBehavior.")
@@ -171,7 +168,7 @@ def auto_update_behavior(new_auto_update_behavior):
 
 
 # "DownloadThrottleKbps"		"0"
-def download_throttle(rate):
+def set_download_throttle(rate):
     close_steam()
 
     path = f"{all_steam_directories[0]}\\config\\config.vdf"
