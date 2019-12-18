@@ -5,6 +5,8 @@ from shutil import copyfile
 
 from sty import fg
 
+is_production = True
+
 
 # Static Functions #
 def file_exists(path):
@@ -24,8 +26,25 @@ def read_file(path):
     return data
 
 
+def backup_file(path):
+    p = Path(path)
+    if p.exists():
+        copyfile(path, f"{path}.old")
+        # log(f"Created a backup of: {path}")  # TODO: Logging inside GeneralTools is broken
+
+
+# Create or overwrite file
+def overwrite_file(path, data):
+    file = open(path, "w")
+    file.seek(0)
+    file.write(data)
+    file.truncate()
+    file.close()
+    log(f"Wrote data to: {path}")
+
+
 # Credit to: https://stackoverflow.com/a/684344/5216257
-def clear_console(is_production):
+def clear_console():
     if is_production:
         os.system('cls' if os.name == 'nt' else 'clear')
 
@@ -35,23 +54,6 @@ def stop_program():
     raise SystemExit(0)
 
 
-# TODO: Test backup function
-def overwrite_file(path, data):
-    # Back up changes before committing them
-    p = Path(path)
-    if p.exists():
-        copyfile(path, f"{path}.old")
-        log(f"Created a backup of: {path}")
-
-    # Create or overwrite file
-    file = open(path, "w")
-    file.seek(0)
-    file.write(data)
-    file.truncate()
-    file.close()
-    log(f"Wrote data to: {path}")
-
-
 # Setup a means for creating more readable log output.
 LEVEL_ERROR = -2
 LEVEL_WARN = -1
@@ -59,6 +61,7 @@ LEVEL_NORMAL = 0
 LEVEL_OK = 1
 
 
+# TODO: Logging could be revamped to be more helpful (and more verbose?)
 def log(message, level=LEVEL_NORMAL):
     stack = inspect.stack()
     def_name = stack[1].__getattribute__("function")
