@@ -1,7 +1,7 @@
 """
 TODO: Integrate with SteamCMD to allow for downloading of multiple Steam games at once (+ limit bandwidth and priority)?
+TODO: Wish-list manager
 -----
-TODO: Continue to implement more verbose logging
 TODO: Implement config saving (maybe to a .json file)
 """
 import glob
@@ -13,7 +13,6 @@ import vdf
 import GeneralTools as Tools
 
 """ SETUP """
-is_production = True
 all_steam_directories = [
     "C:\\Program Files (x86)\\Steam"  # The default Steam installation directory for most users
 ]
@@ -66,18 +65,19 @@ def find_steam_install_dir():
 
 
 def return_to_main_menu():
-    input(f"\nPress any key to return to the menu...")
+    input(f"\nPress enter to return to the menu...")
     display_main_menu()
 
 
 def display_main_menu():
     menu_options = {
         1: "AutoUpdateBehavior",
+        2: "DownloadThrottle",
         9: "Quit"
     }
     user_input = 0
     while not menu_options.__contains__(user_input):
-        Tools.clear_console(is_production)
+        Tools.clear_console()
         # Setup menu display
         print("Steam Setting Updater")
         for num, option in menu_options.items():
@@ -89,7 +89,7 @@ def display_main_menu():
         else:
             user_input = 0
 
-    Tools.clear_console(is_production)
+    Tools.clear_console()
     if user_input == 1:
         print(menu_options[1])
         print("0 = Always keep this game up to date\n"
@@ -105,6 +105,13 @@ def display_main_menu():
                 new_auto_update_behavior = -1
 
         auto_update_behavior(new_auto_update_behavior)
+    if user_input == 2:
+        while True:
+            Tools.clear_console()
+            rate = str(input("Enter a download rate in Kbps (0=disable): "))
+            if rate.isdigit():
+                break
+        download_throttle(int(rate))
     elif user_input == 9:
         Tools.stop_program()
 
@@ -115,6 +122,8 @@ def display_main_menu():
 
 
 def auto_update_behavior(new_auto_update_behavior):
+    close_steam()
+
     # Variables for keeping track of how many acf files were processed
     num_updated_acf_files = 0
     num_total_acf_files = 0
@@ -123,7 +132,7 @@ def auto_update_behavior(new_auto_update_behavior):
     old_auto_update_behavior = [0, 1, 2]
     old_auto_update_behavior.remove(new_auto_update_behavior)
 
-    # TODO: Cleanup code
+    # TODO: Cleanup code using new vdf reader/writer
     for steamapp_directory in all_steam_directories:
         os.chdir(steamapp_directory + "\\steamapps")
         for appmanifest_path in glob.glob("appmanifest_*.acf"):
@@ -148,13 +157,47 @@ def auto_update_behavior(new_auto_update_behavior):
                 num_updated_acf_files += 1
             appmanifest.close()
 
-    print(f"The automatic update behavior of {num_updated_acf_files} game(s) were changed.\n"
-          f"{abs(num_updated_acf_files - num_total_acf_files)} game(s) already had the requested setting.\n"
-          f"{len(all_steam_directories)} Steam library folder(s) were affected.")
+    if num_updated_acf_files == 0:
+        print(f"All {num_total_acf_files} games already had the requested AutoUpdateBehavior.")
+    elif num_updated_acf_files == num_total_acf_files:
+        print(f"All {num_total_acf_files} games were updated to the requested AutoUpdateBehavior.")
+    else:
+        print(f"{num_updated_acf_files}/{num_total_acf_files} games were updated to the requested AutoUpdateBehavior.\n"
+              f"(some already had the requested AutoUpdateBehavior.)")
+    print(f"{len(all_steam_directories)} Steam library folder(s) were searched.")
+
+
+""" DownloadThrottle """
+
+
+# "DownloadThrottleKbps"		"0"
+def download_throttle(rate):
+    close_steam()
+
+    path = f"{all_steam_directories[0]}\\config\\config.vdf"
+    config_vdf = vdf.load(open(path), mapper=vdf.VDFDict)  # Load VDF file
+    old_value = config_vdf['InstallConfigStore']['Software']['Valve']['steam']['DownloadThrottleKbps']
+
+    if int(old_value) == rate:
+        print(f"Your download rate was not changed because it was already set to"
+              f" {'unlimited' if old_value == '0' else f'{old_value} Kbps'}.")
+        return
+
+    # Delete old value and add new value
+    del config_vdf['InstallConfigStore']['Software']['Valve']['steam']['DownloadThrottleKbps']
+    config_vdf['InstallConfigStore']['Software']['Valve']['steam'].update({'DownloadThrottleKbps': rate})
+    # Backup and then output to file
+    Tools.backup_file(path)
+    vdf.dump(config_vdf, open(path, "w"), pretty=True)
+
+    print(f"Your download rate was change from {'unlimited' if old_value == '0' else f'{old_value} Kbps'} to"
+          f" {'unlimited' if rate == 0 else f'{rate} Kbps'}.")
+
+
+""" INIT """
 
 
 def __init__():
-    close_steam()
     find_steam_install_dir()
     display_main_menu()
 
